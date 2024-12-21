@@ -26,7 +26,7 @@ app.use("/api/products", productRoutes);
 
 // Basic route
 app.get("/", (req, res) => {
-    res.send("Hello World with roles in ES modules!");
+    res.send("ITI-JS-PROJECT");
 });
 
 // Start the server
