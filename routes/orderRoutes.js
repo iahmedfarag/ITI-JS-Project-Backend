@@ -2,8 +2,6 @@ import express from "express";
 import { checkout, updateOrderStatus, getAllOrders, getOrderById } from "../controllers/orderController.js";
 import { auth } from "../middlewares/auth.js";
 
-import { auth } from "../middlewares/auth.js";
-
 const router = express.Router();
 
 router.post("/checkout", auth, checkout); // Checkout route (protected)
