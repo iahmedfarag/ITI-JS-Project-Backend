@@ -1,4 +1,5 @@
 import mongoose from "mongoose";
+import bcrypt from "bcryptjs";
 
 const userSchema = new mongoose.Schema({
     email: {
@@ -29,5 +30,19 @@ const userSchema = new mongoose.Schema({
         default: Date.now,
     },
 });
+
+// Pre-save hook to hash passwords
+userSchema.pre("save", async function (next) {
+    if (!this.isModified("password")) return next();
+    console.log("Hashing Password:", this.password); // Log the raw password
+    this.password = await bcrypt.hash(this.password, 10);
+    console.log("Hashed Password:", this.password); // Log the hashed password
+    next();
+});
+
+// Method to compare passwords
+userSchema.methods.comparePassword = async function (candidatePassword) {
+    return bcrypt.compare(candidatePassword, this.password);
+};
 
 export default mongoose.model("User", userSchema);

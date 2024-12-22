@@ -7,6 +7,11 @@ import cloudinary from "../services/cloudinary.js";
  */
 export const createCategory = async (req, res) => {
     try {
+        // Allow only admins
+        if (req.user.role !== "admin") {
+            return res.status(403).json({ error: "Access denied. Admins only." });
+        }
+
         const { name } = req.body;
 
         // Check if category already exists
@@ -53,7 +58,13 @@ export const getCategoryById = async (req, res) => {
  */
 export const updateCategory = async (req, res) => {
     try {
+        // Allow only admins
+        if (req.user.role !== "admin") {
+            return res.status(403).json({ error: "Access denied. Admins only." });
+        }
+
         const { name } = req.body;
+
         const updatedCategory = await Category.findByIdAndUpdate(req.params.id, { name }, { new: true });
         if (!updatedCategory) {
             return res.status(404).json({ error: "Category not found" });
@@ -69,36 +80,38 @@ export const updateCategory = async (req, res) => {
  */
 export const deleteCategory = async (req, res) => {
     try {
-        // 1. Check if category exists
+        // Allow only admins
+        if (req.user.role !== "admin") {
+            return res.status(403).json({ error: "Access denied. Admins only." });
+        }
+
+        // Check if category exists
         const catToDelete = await Category.findById(req.params.id);
         if (!catToDelete) {
             return res.status(404).json({ error: "Category not found" });
         }
 
-        // 2. Find all products associated with this category
+        // Find all products associated with this category
         const products = await Product.find({ category: catToDelete._id });
 
-        // 3. Delete all resources (images) for each product in the category
+        // Delete all resources (images) for each product in the category
         for (const product of products) {
             const folderPath = `ITI-JS-Project/${catToDelete._id}/${product._id}`;
-            // Delete all files in the product folder
             await cloudinary.api.delete_resources_by_prefix(folderPath);
-            // Optionally delete the empty folder
             await cloudinary.api.delete_folder(folderPath);
         }
 
-        // 4. Delete the category folder from Cloudinary
+        // Delete the category folder from Cloudinary
         const categoryFolderPath = `ITI-JS-Project/${catToDelete._id}`;
-        await cloudinary.api.delete_resources_by_prefix(categoryFolderPath); // Delete all resources under the category
-        await cloudinary.api.delete_folder(categoryFolderPath); // Delete the category folder itself
+        await cloudinary.api.delete_resources_by_prefix(categoryFolderPath);
+        await cloudinary.api.delete_folder(categoryFolderPath);
 
-        // 5. Delete all products associated with the category from the database
+        // Delete all products associated with the category
         await Product.deleteMany({ category: catToDelete._id });
 
-        // 6. Delete the category itself
+        // Delete the category itself
         await Category.findByIdAndDelete(req.params.id);
 
-        // Respond with success
         res.json({
             message: "Category and all related products deleted successfully",
             category: catToDelete,

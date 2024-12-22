@@ -3,7 +3,9 @@ import Product from "../Models/Product.js";
 
 // Add product to cart
 export const addToCart = async (req, res) => {
-    const { userId, productId, quantity } = req.body; // Extract userId, productId, and quantity from body
+    const { productId, quantity } = req.body; // Extract productId and quantity from body
+    const userId = req.user.userId; // Extract userId from token
+
     try {
         const product = await Product.findById(productId);
         if (!product) {
@@ -17,7 +19,7 @@ export const addToCart = async (req, res) => {
             const existingItem = cart.items.find((item) => item.product.toString() === productId);
 
             if (existingItem) {
-                // If the product exists, increase its quantity (ensure numeric addition)
+                // If the product exists, increase its quantity
                 existingItem.quantity += Number(quantity);
             } else {
                 // If the product doesn't exist, add it to the cart
@@ -43,7 +45,8 @@ export const addToCart = async (req, res) => {
 
 // Get cart
 export const getCart = async (req, res) => {
-    const { userId } = req.body;
+    const userId = req.user.userId; // Extract userId from token
+
     try {
         const cart = await Cart.findOne({ user: userId }).populate("items.product");
 
@@ -59,10 +62,12 @@ export const getCart = async (req, res) => {
 
 // Update cart item quantity
 export const updateCartItem = async (req, res) => {
-    const { userId, productId, quantity } = req.body; // Extract userId, productId, and quantity from body
+    const { productId, quantity } = req.body; // Extract productId and quantity from body
+    const userId = req.user.userId; // Extract userId from token
+
     try {
         const cart = await Cart.findOneAndUpdate(
-            { user: userId, "items.product": productId }, // Use userId from the request body
+            { user: userId, "items.product": productId }, // Match user and product
             {
                 $set: { "items.$.quantity": quantity },
             },
@@ -77,10 +82,12 @@ export const updateCartItem = async (req, res) => {
 
 // Remove product
 export const removeFromCart = async (req, res) => {
-    const { userId, productId } = req.body; // Extract userId and productId from body
+    const { productId } = req.body; // Extract productId from body
+    const userId = req.user.userId; // Extract userId from token
+
     try {
         const cart = await Cart.findOneAndUpdate(
-            { user: userId }, // Use userId from the request body
+            { user: userId },
             { $pull: { items: { product: productId } } }, // Remove specific product
             { new: true }
         ).populate("items.product");

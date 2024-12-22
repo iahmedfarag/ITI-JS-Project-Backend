@@ -3,7 +3,7 @@ import Order from "../Models/Order.js";
 
 // Checkout Cart and Create Order
 export const checkout = async (req, res) => {
-    const { userId } = req.body; // Extract userId from the request body
+    const userId = req.user.userId; // Extract userId from token
 
     try {
         const cart = await Cart.findOne({ user: userId }).populate("items.product");
@@ -32,6 +32,11 @@ export const updateOrderStatus = async (req, res) => {
     const { orderId, status } = req.body; // Extract orderId and status from the request body
 
     try {
+        // Allow only admins to update order status
+        if (req.user.role !== "admin") {
+            return res.status(403).json({ success: false, message: "Access denied. Admins only." });
+        }
+
         const order = await Order.findById(orderId);
 
         if (!order) {

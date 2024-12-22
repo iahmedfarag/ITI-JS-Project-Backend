@@ -1,11 +1,13 @@
 import User from "../Models/User.js";
+import jwt from "jsonwebtoken";
+import bcrypt from "bcryptjs";
 
 /**
  * Create a new user (Register)
  * - Includes "role" with default "user" if not provided
  */
+
 export const createUser = async (req, res) => {
-    console.log(req);
     try {
         const { email, firstName, lastName, password, repeatPassword, role = "user" } = req.body;
 
@@ -20,18 +22,24 @@ export const createUser = async (req, res) => {
             return res.status(400).json({ error: "User with this email already exists" });
         }
 
-        // Create new user
+        // Create new user (let the pre-save hook handle hashing)
         const newUser = await User.create({
             email,
             firstName,
             lastName,
-            password, // <-- Remember to hash in real-world scenarios
+            password, // Plain text password
             role,
         });
 
         res.status(201).json({
             message: "User created successfully",
-            user: newUser,
+            user: {
+                id: newUser._id,
+                email: newUser.email,
+                firstName: newUser.firstName,
+                lastName: newUser.lastName,
+                role: newUser.role,
+            },
         });
     } catch (error) {
         res.status(500).json({ error: error.message });
@@ -43,7 +51,12 @@ export const createUser = async (req, res) => {
  */
 export const getAllUsers = async (req, res) => {
     try {
-        const users = await User.find();
+        // Check if the user has the admin role
+        if (req.user.role !== "admin") {
+            return res.status(403).json({ error: "Access denied. Admins only." });
+        }
+
+        const users = await User.find(); // Get all users
         res.json(users);
     } catch (error) {
         res.status(500).json({ error: error.message });
@@ -71,14 +84,26 @@ export const updateUser = async (req, res) => {
     try {
         const { email, firstName, lastName, password, role } = req.body;
 
-        // Optionally handle repeatPassword if needed
-        // e.g. if (password !== repeatPassword)...
+        // Allow admin to update any user, regular users can only update themselves
+        if (req.user.role !== "admin" && req.user.userId !== req.params.id) {
+            return res.status(403).json({ error: "Access denied. You can only update your own account." });
+        }
 
-        const updatedUser = await User.findByIdAndUpdate(
-            req.params.id,
-            { email, firstName, lastName, password, role },
-            { new: true } // return the updated doc
-        );
+        const updateData = { email, firstName, lastName };
+
+        // If password is being updated, hash it
+        if (password) {
+            const hashedPassword = await bcrypt.hash(password, 10);
+            updateData.password = hashedPassword;
+        }
+
+        // Allow admins to update role
+        if (req.user.role === "admin" && role) {
+            updateData.role = role;
+        }
+
+        const updatedUser = await User.findByIdAndUpdate(req.params.id, updateData, { new: true });
+
         if (!updatedUser) return res.status(404).json({ error: "User not found" });
 
         res.json({
@@ -95,9 +120,60 @@ export const updateUser = async (req, res) => {
  */
 export const deleteUser = async (req, res) => {
     try {
+        // Allow admin to delete any user, regular users can only delete themselves
+        if (req.user.role !== "admin" && req.user.userId !== req.params.id) {
+            return res.status(403).json({ error: "Access denied. You can only delete your own account." });
+        }
+
         const deletedUser = await User.findByIdAndDelete(req.params.id);
+
         if (!deletedUser) return res.status(404).json({ error: "User not found" });
+
         res.json({ message: "User deleted successfully", user: deletedUser });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+};
+
+/**
+ * Login
+ */
+export const loginUser = async (req, res) => {
+    const { email, password } = req.body;
+
+    try {
+        if (!email || !password) {
+            return res.status(400).json({ error: "Email and password are required" });
+        }
+
+        const user = await User.findOne({ email });
+        if (!user) {
+            return res.status(404).json({ error: "Invalid email or password" });
+        }
+
+        console.log("Plain Text Password:", password);
+        console.log("Hashed Password from DB:", user.password);
+
+        const isMatch = await bcrypt.compare(password, user.password);
+        console.log("Password Match:", isMatch);
+
+        if (!isMatch) {
+            return res.status(400).json({ error: "Invalid email or password" });
+        }
+
+        const token = jwt.sign({ userId: user._id, role: user.role }, process.env.JWT_SECRET, { expiresIn: "1h" });
+
+        res.status(200).json({
+            message: "Login successful",
+            token,
+            user: {
+                id: user._id,
+                email: user.email,
+                firstName: user.firstName,
+                lastName: user.lastName,
+                role: user.role,
+            },
+        });
     } catch (error) {
         res.status(500).json({ error: error.message });
     }

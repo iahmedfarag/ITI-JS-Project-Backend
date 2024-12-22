@@ -1,21 +1,25 @@
 import { Router } from "express";
-import { createUser, getAllUsers, getUserById, updateUser, deleteUser } from "../controllers/userController.js";
+import { createUser, getAllUsers, getUserById, updateUser, deleteUser, loginUser } from "../controllers/userController.js";
+import { auth } from "../middlewares/auth.js";
 
 const router = Router();
 
 // Create (Register)
 router.post("/", createUser);
 
-// Read (Get all users)
-router.get("/", getAllUsers);
+// Login
+router.post("/login", loginUser);
 
-// Read (Get one user)
-router.get("/:id", getUserById);
+// Read (Get all users - protected)
+router.get("/", auth, getAllUsers);
 
-// Update
-router.put("/:id", updateUser);
+// Read (Get one user - protected)
+router.get("/:id", auth, getUserById);
 
-// Delete
-router.delete("/:id", deleteUser);
+// Update - protected
+router.put("/:id", auth, updateUser);
+
+// Delete - protected
+router.delete("/:id", auth, deleteUser);
 
 export default router;

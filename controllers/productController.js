@@ -8,8 +8,13 @@ import { uploadToCloudinary } from "../utils/cloudinaryHelper.js";
  */
 export const createProduct = async (req, res) => {
     try {
+        // Allow only admins
+        if (req.user.role !== "admin") {
+            return res.status(403).json({ error: "Access denied. Admins only." });
+        }
+
         const { name, description, price, discount, quantity, isFeatured, category } = req.body;
-        console.log(req.files);
+
         // Validate category existence
         const categoryObj = await Category.findById(category);
         if (!categoryObj) {
@@ -31,7 +36,7 @@ export const createProduct = async (req, res) => {
         await tempProduct.save();
 
         // Create folder path based on category ID and product ID
-        const folderPath = `ITI-JS-Project/${category}/${tempProduct._id}`; // e.g., "64a4f13c0abc12345/64a4f76c9ef234abc"
+        const folderPath = `ITI-JS-Project/${category}/${tempProduct._id}`;
 
         // Handle mainImage upload (REQUIRED)
         let mainImageUrl = null;
@@ -100,6 +105,11 @@ export const getProductById = async (req, res) => {
  */
 export const updateProduct = async (req, res) => {
     try {
+        // Allow only admins
+        if (req.user.role !== "admin") {
+            return res.status(403).json({ error: "Access denied. Admins only." });
+        }
+
         const { name, description, price, discount, quantity, isFeatured, category } = req.body;
 
         // Find the product
@@ -115,26 +125,25 @@ export const updateProduct = async (req, res) => {
         }
 
         // Create folder path based on category ID and product ID
-        const folderPath = `ITI-JS-Project/${category || product.category}/${product._id}`; // E.g., "ITI-JS-Project/64a4f13c0abc12345/64a4f76c9ef234abc"
+        const folderPath = `ITI-JS-Project/${category || product.category}/${product._id}`;
 
         // Handle mainImage upload
-        let mainImageUrl = product.mainImage; // Preserve existing
+        let mainImageUrl = product.mainImage;
         if (req.files?.mainImage && req.files.mainImage[0]) {
             const mainImgResult = await uploadToCloudinary(req.files.mainImage[0].buffer, folderPath);
             mainImageUrl = mainImgResult.secure_url;
         }
 
         // Handle otherImages upload
-        let otherImagesUrls = product.otherImages; // Preserve existing
+        let otherImagesUrls = product.otherImages;
         if (req.files?.otherImages && req.files.otherImages.length) {
-            otherImagesUrls = []; // Clear existing otherImages
+            otherImagesUrls = [];
             for (const file of req.files.otherImages) {
                 const result = await uploadToCloudinary(file.buffer, folderPath);
                 otherImagesUrls.push(result.secure_url);
             }
         }
 
-        // Build update object
         const updateFields = {
             name: name || product.name,
             description: description || product.description,
@@ -147,23 +156,14 @@ export const updateProduct = async (req, res) => {
             otherImages: otherImagesUrls,
         };
 
-        // Update product in the database
         const updatedProduct = await Product.findByIdAndUpdate(req.params.id, updateFields, {
             new: true,
-            runValidators: true, // Ensure validation is applied
+            runValidators: true,
         });
 
-        // If category is updated, update references in the categories
         if (category && category !== product.category.toString()) {
-            // Remove product reference from old category
-            await Category.findByIdAndUpdate(product.category, {
-                $pull: { products: product._id },
-            });
-
-            // Add product reference to new category
-            await Category.findByIdAndUpdate(category, {
-                $push: { products: product._id },
-            });
+            await Category.findByIdAndUpdate(product.category, { $pull: { products: product._id } });
+            await Category.findByIdAndUpdate(category, { $push: { products: product._id } });
         }
 
         res.json({ message: "Product updated", product: updatedProduct });
@@ -177,24 +177,20 @@ export const updateProduct = async (req, res) => {
  */
 export const deleteProduct = async (req, res) => {
     try {
-        // Find and delete the product
+        // Allow only admins
+        if (req.user.role !== "admin") {
+            return res.status(403).json({ error: "Access denied. Admins only." });
+        }
+
         const deletedProduct = await Product.findByIdAndDelete(req.params.id);
         if (!deletedProduct) return res.status(404).json({ error: "Product not found" });
 
-        // Remove reference from its category
         if (deletedProduct.category) {
-            await Category.findByIdAndUpdate(deletedProduct.category, {
-                $pull: { products: deletedProduct._id },
-            });
+            await Category.findByIdAndUpdate(deletedProduct.category, { $pull: { products: deletedProduct._id } });
         }
 
-        // Construct the folder path
         const folderPath = `ITI-JS-Project/${deletedProduct.category}/${deletedProduct._id}`;
-
-        // Delete all resources (images) in the folder
         await cloudinary.api.delete_resources_by_prefix(folderPath);
-
-        // Optionally delete the folder itself
         await cloudinary.api.delete_folder(folderPath);
 
         res.json({ message: "Product and associated images deleted", product: deletedProduct });
