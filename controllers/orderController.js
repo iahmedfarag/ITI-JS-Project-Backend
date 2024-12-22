@@ -57,3 +57,42 @@ export const updateOrderStatus = async (req, res) => {
         res.status(500).json({ success: false, message: error.message });
     }
 };
+
+export const getAllOrders = async (req, res) => {
+    try {
+        let orders;
+
+        // Admin: Fetch all orders
+        if (req.user.role === "admin") {
+            orders = await Order.find().populate("items.product").populate("user", "email");
+        } else {
+            // User: Fetch only their orders
+            orders = await Order.find({ user: req.user.userId }).populate("items.product");
+        }
+
+        res.status(200).json({ success: true, orders });
+    } catch (error) {
+        res.status(500).json({ success: false, message: error.message });
+    }
+};
+
+export const getOrderById = async (req, res) => {
+    const { id } = req.params; // Order ID from route params
+
+    try {
+        const order = await Order.findById(id).populate("items.product").populate("user", "email");
+
+        if (!order) {
+            return res.status(404).json({ success: false, message: "Order not found" });
+        }
+
+        // Allow access if the user is admin or the owner of the order
+        if (req.user.role !== "admin" && req.user.userId !== order.user.toString()) {
+            return res.status(403).json({ success: false, message: "Access denied." });
+        }
+
+        res.status(200).json({ success: true, order });
+    } catch (error) {
+        res.status(500).json({ success: false, message: error.message });
+    }
+};

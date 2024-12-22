@@ -147,15 +147,14 @@ export const loginUser = async (req, res) => {
         }
 
         const user = await User.findOne({ email });
+
+        console.log(user);
+
         if (!user) {
             return res.status(404).json({ error: "Invalid email or password" });
         }
 
-        console.log("Plain Text Password:", password);
-        console.log("Hashed Password from DB:", user.password);
-
         const isMatch = await bcrypt.compare(password, user.password);
-        console.log("Password Match:", isMatch);
 
         if (!isMatch) {
             return res.status(400).json({ error: "Invalid email or password" });
