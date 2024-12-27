@@ -164,10 +164,10 @@ export const getOrderById = async (req, res) => {
         }
 
         // Allow access if the user is admin or the owner of the order
-        if (req.user.role !== "admin" && req.user.userId !== order.user.toString()) {
+
+        if (req.user.role === "admin" || req.user.userId !== order.user._id.toString()) {
             return res.status(403).json({ success: false, message: "Access denied." });
         }
-
         res.status(200).json({ success: true, order });
     } catch (error) {
         res.status(500).json({ success: false, message: error.message });
