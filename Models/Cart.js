@@ -20,6 +20,14 @@ const cartSchema = new mongoose.Schema({
             },
         },
     ],
+    price: {
+        type: Number,
+        default: 0,
+    },
+    priceAfterDiscount: {
+        type: Number,
+        default: 0,
+    },
 });
 
 export default mongoose.model("Cart", cartSchema);

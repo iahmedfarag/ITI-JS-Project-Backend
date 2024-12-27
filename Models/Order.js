@@ -20,6 +20,39 @@ const orderSchema = new mongoose.Schema({
             },
         },
     ],
+    name: {
+        type: String,
+        required: true,
+    },
+    email: {
+        type: String,
+        required: true,
+    },
+    address: {
+        type: String,
+        required: true,
+    },
+    phone: {
+        type: String,
+        required: true,
+    },
+    paymentMethod: {
+        type: String,
+        enum: ["cash", "visa"],
+        default: "cash",
+    },
+    price: {
+        type: Number,
+        required: true,
+    },
+    priceAfterDiscount: {
+        type: Number,
+        required: true,
+    },
+    totalDiscount: {
+        type: Number,
+        required: true,
+    },
     status: {
         type: String,
         enum: ["pending", "approved", "declined", "completed"],
